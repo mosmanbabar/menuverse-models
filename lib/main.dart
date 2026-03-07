@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 void main() {
   runApp(const MyApp());
@@ -33,12 +34,34 @@ class _MenuVerseTestPageState extends State<MenuVerseTestPage> {
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(NavigationDelegate(
         onPageFinished: (url) {
-          print('✅ Page loaded: $url');
-          loadTestItem();
+          if (url.contains('menuverse-core.html')) {
+            print('✅ Page loaded: $url');
+            loadTestItem();
+          }
         },
         onWebResourceError: (error) {
           print('❌ WebView Error: ${error.description}');
-          print('❌ Error URL: ${error.url}');
+        },
+        onNavigationRequest: (request) async {
+          // AR intent URL — Flutter se handle karo
+          if (request.url.startsWith('intent://')) {
+            try {
+              final uri = Uri.parse(request.url);
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri);
+              } else {
+                // ARCore nahi hai — Play Store pe bhejo
+                final playStore = Uri.parse(
+                    'https://play.google.com/store/apps/details?id=com.google.ar.core'
+                );
+                await launchUrl(playStore, mode: LaunchMode.externalApplication);
+              }
+            } catch (e) {
+              print('AR Error: $e');
+            }
+            return NavigationDecision.prevent;
+          }
+          return NavigationDecision.navigate;
         },
       ))
       ..loadFlutterAsset('assets/menuverse-core.html');
@@ -58,7 +81,7 @@ class _MenuVerseTestPageState extends State<MenuVerseTestPage> {
       "calories": "650 cal",
       "tags": ["Bestseller", "Spicy"],
       "ingredients": ["Beef Patty", "Cheese", "Lettuce", "Special Sauce"],
-      "modelUrl": "assets/models/burger.glb",
+      "modelUrl": "https://raw.githubusercontent.com/mosmanbabar/menuverse-models/main/burger.glb",
       "imageUrl": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd"
     }
     ''';
